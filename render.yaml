@@ -2,7 +2,7 @@ services:
   - type: web
     name: ai-qa-checker
     env: docker
-    region: oregon  # or singapore/frankfurt as per your choice
+    region: frankfurt  # or singapore/frankfurt as per your choice
     plan: free  # or starter, standard etc.
     dockerfilePath: ./Dockerfile
     buildCommand: ""
