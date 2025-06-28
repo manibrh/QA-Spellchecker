@@ -1,7 +1,9 @@
 services:
   - type: web
-    name: QASpellChecker-app
-    runtime: python
-    pythonVersion: 3.12
-    buildCommand: pip install --upgrade pip && pip install --prefer-binary -r requirements.txt
-    startCommand: gunicorn app:app
+    name: ai-qa-app
+    env: docker
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    cpu: 1
+    memoryGB: 1
+    autoDeploy: true
