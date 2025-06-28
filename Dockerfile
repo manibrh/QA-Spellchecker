@@ -6,4 +6,5 @@ RUN pip install --upgrade pip setuptools wheel \
  && pip install --prefer-binary -r requirements.txt
 COPY . .
 
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
+
