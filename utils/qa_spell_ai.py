@@ -12,16 +12,13 @@ Source: {seg['source']}
 Target: {seg['target']}
 Return a JSON or bullet point list of spelling issues."""
         try:
-            def generate_ai_response(prompt):
+            def run_spellcheck_ai(text):
     response = client.chat.completions.create(
         model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": text}],
     )
-    return response.choices[0].message.content.strip()
-            content = res.choices[0].message['content']
+    return response.choices[0].message.content
+                content = res.choices[0].message['content']
             issues.append({"id": seg['id'], "issue_type": "Spelling (AI)", "detail": content})
         except Exception as e:
             issues.append({"id": seg['id'], "issue_type": "Spelling (AI)", "detail": f"Error: {str(e)}"})
