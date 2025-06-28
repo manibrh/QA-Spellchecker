@@ -19,43 +19,48 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        bilingual_file = request.files.get('bilingual_file')
-        dnt_file = request.files.get('dnt_file')
-        glossary_file = request.files.get('glossary_file')
-        style_guide = request.form.get('style_guide')
+        try:
+            bilingual_file = request.files.get('bilingual_file')
+            dnt_file = request.files.get('dnt_file')
+            glossary_file = request.files.get('glossary_file')
+            style_guide = request.form.get('style_guide')
 
-        if not bilingual_file:
-            return "No bilingual file uploaded", 400
+            if not bilingual_file:
+                return "No bilingual file uploaded", 400
 
-        bilingual_path = os.path.join(UPLOAD_FOLDER, bilingual_file.filename)
-        bilingual_file.save(bilingual_path)
+            bilingual_path = os.path.join(UPLOAD_FOLDER, bilingual_file.filename)
+            bilingual_file.save(bilingual_path)
 
-        dnt_path = None
-        glossary_path = None
+            dnt_path = None
+            glossary_path = None
 
-        if dnt_file and dnt_file.filename:
-            dnt_path = os.path.join(UPLOAD_FOLDER, dnt_file.filename)
-            dnt_file.save(dnt_path)
+            if dnt_file and dnt_file.filename:
+                dnt_path = os.path.join(UPLOAD_FOLDER, dnt_file.filename)
+                dnt_file.save(dnt_path)
 
-        if glossary_file and glossary_file.filename:
-            glossary_path = os.path.join(UPLOAD_FOLDER, glossary_file.filename)
-            glossary_file.save(glossary_path)
+            if glossary_file and glossary_file.filename:
+                glossary_path = os.path.join(UPLOAD_FOLDER, glossary_file.filename)
+                glossary_file.save(glossary_path)
 
-        # Parse segments
-        segments = parse_bilingual_file(bilingual_path)
+            # Parse segments
+            segments = parse_bilingual_file(bilingual_path)
 
-        # Run checks
-        all_issues = []
-        all_issues.extend(run_dnt_check(segments, dnt_path))
-        all_issues.extend(run_spellcheck_ai(segments))
-        all_issues.extend(run_mistranslation_check(segments))
-        all_issues.extend(run_literalness_check(segments))
-        all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
+            # Run all checks and collect categorized issues
+            all_issues = {
+                "DNT": run_dnt_check(segments, dnt_path),
+                "Spelling/Grammar": run_spellcheck_ai(segments),
+                "Mistranslation": run_mistranslation_check(segments),
+                "Literalness": run_literalness_check(segments),
+                "Glossary/Style": run_glossary_style_check(segments, glossary_path, style_guide),
+            }
 
-        # Generate report
-        report_path = generate_report(segments, all_issues)
+            # Generate report
+            report_path = generate_report(segments, all_issues)
 
-        return send_file(report_path, as_attachment=True)
+            return send_file(report_path, as_attachment=True)
+
+        except Exception as e:
+            return f"Error during QA checks: {str(e)}", 500
 
     return render_template('index.html')
 
