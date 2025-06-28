@@ -2,17 +2,15 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()  # Loads .env if running locally
-
+load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def run_spellcheck_ai(segments):
     issues = []
-
     for segment in segments:
         try:
             response = client.chat.completions.create(
-                model="gpt-4o",  # or "gpt-4-turbo" if preferred
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
@@ -31,7 +29,6 @@ def run_spellcheck_ai(segments):
             )
 
             reply = response.choices[0].message.content.strip()
-
             if "no issue" not in reply.lower():
                 issues.append({
                     "Segment": segment,
@@ -45,5 +42,4 @@ def run_spellcheck_ai(segments):
                 "Issue Type": "API Error",
                 "Details": str(e)
             })
-
     return issues
