@@ -2,6 +2,6 @@ services:
   - type: web
     name: QASpellChecker-app
     runtime: python
-    pythonVersion: 3.11
+    pythonVersion: 3.12
     buildCommand: pip install --upgrade pip && pip install --prefer-binary -r requirements.txt
     startCommand: gunicorn app:app
