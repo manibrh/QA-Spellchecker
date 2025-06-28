@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: fileprep-app
-    env: docker
-    plan: free
-    dockerContext: .
-    dockerfilePath: Dockerfile
-    healthCheckPath: /
+    name: QASpellChecker-app
+    runtime: python
+    pythonVersion: 3.11
+    buildCommand: pip install --upgrade pip && pip install --prefer-binary -r requirements.txt
+    startCommand: gunicorn app:app
