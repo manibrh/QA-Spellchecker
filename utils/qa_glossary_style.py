@@ -1,8 +1,10 @@
-# utils/qa_glossary_style.py
-import openai
 import os
+from openai import OpenAI
 import pandas as pd
-openai.api_key = os.getenv("OPENAI_API_KEY")
+from dotenv import load_dotenv
+
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def load_glossary(filepath):
     if not filepath:
@@ -14,6 +16,7 @@ def run_glossary_style_check(segments, glossary_path=None, style_guide=None):
     glossary = load_glossary(glossary_path)
     issues = []
     glossary_text = "\n".join([f"{src} -> {tgt}" for src, tgt in glossary])
+
     for seg in segments:
         prompt = f"""You are a QA checker. Evaluate the target for glossary and style guide compliance.
 Glossary:
@@ -24,12 +27,12 @@ Style Guide:
 Source: {seg['source']}
 Target: {seg['target']}"""
         try:
-            res = openai.ChatCompletion.create(
+            res = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
-            result = res.choices[0].message['content']
+            result = res.choices[0].message.content
             if 'no issues' not in result.lower():
                 issues.append({"id": seg['id'], "issue_type": "Glossary/Style", "detail": result})
         except Exception as e:
