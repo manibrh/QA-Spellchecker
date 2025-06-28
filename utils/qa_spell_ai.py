@@ -1,7 +1,8 @@
 # utils/qa_spell_ai.py
 import openai
+from openai import OpenAI
 import os
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def run_spellcheck_ai(segments):
     issues = []
@@ -11,11 +12,15 @@ Source: {seg['source']}
 Target: {seg['target']}
 Return a JSON or bullet point list of spelling issues."""
         try:
-            res = openai.ChatCompletion.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
-            )
+            def generate_ai_response(prompt):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    return response.choices[0].message.content.strip()
             content = res.choices[0].message['content']
             issues.append({"id": seg['id'], "issue_type": "Spelling (AI)", "detail": content})
         except Exception as e:
