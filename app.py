@@ -1,6 +1,6 @@
 # app.py
 import os
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file
 from dotenv import load_dotenv
 from utils.parser import parse_bilingual_file
 from utils.qa_dnt import run_dnt_check
@@ -19,19 +19,24 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        bilingual_files = request.files.getlist('bilingual_file')
+        bilingual_file = request.files.get('bilingual_file')
         dnt_file = request.files.get('dnt_file')
         glossary_file = request.files.get('glossary_file')
         style_guide = request.form.get('style_guide')
 
-        if not bilingual_files or len(bilingual_files) == 0:
-            return jsonify({"success": False, "message": "No bilingual files uploaded"}), 400
+        selected_checks = {
+            'check_dnt': request.form.get('check_dnt'),
+            'check_spell': request.form.get('check_spell'),
+            'check_mistranslation': request.form.get('check_mistranslation'),
+            'check_literalness': request.form.get('check_literalness'),
+            'check_glossary': request.form.get('check_glossary')
+        }
 
-        segments = []
-        for file in bilingual_files:
-            path = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(path)
-            segments.extend(parse_bilingual_file(path))
+        if not bilingual_file:
+            return "No bilingual file uploaded", 400
+
+        bilingual_path = os.path.join(UPLOAD_FOLDER, bilingual_file.filename)
+        bilingual_file.save(bilingual_path)
 
         dnt_path = None
         glossary_path = None
@@ -44,33 +49,25 @@ def index():
             glossary_path = os.path.join(UPLOAD_FOLDER, glossary_file.filename)
             glossary_file.save(glossary_path)
 
-        # Run QA checks
+        segments = parse_bilingual_file(bilingual_path)
         all_issues = []
-        all_issues.extend(run_dnt_check(segments, dnt_path))
-        all_issues.extend(run_spellcheck_ai(segments))
-        all_issues.extend(run_mistranslation_check(segments))
-        all_issues.extend(run_literalness_check(segments))
-        all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
+
+        if selected_checks['check_dnt']:
+            all_issues.extend(run_dnt_check(segments, dnt_path))
+        if selected_checks['check_spell']:
+            all_issues.extend(run_spellcheck_ai(segments))
+        if selected_checks['check_mistranslation']:
+            all_issues.extend(run_mistranslation_check(segments))
+        if selected_checks['check_literalness']:
+            all_issues.extend(run_literalness_check(segments))
+        if selected_checks['check_glossary']:
+            all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
 
         report_path = generate_report(segments, all_issues)
-        filename = os.path.basename(report_path)
 
-        return jsonify({
-            "success": True,
-            "filename": filename,
-            "message": "QA report ready"
-        })
+        return send_file(report_path, as_attachment=True)
 
     return render_template('index.html')
-
-
-@app.route('/download/<filename>')
-def download_report(filename):
-    path = os.path.join("static", "qa_reports", filename)
-    if os.path.exists(path):
-        return send_file(path, as_attachment=True)
-    return "File not found", 404
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
