@@ -4,7 +4,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def load_glossary(filepath):
     if not filepath:
