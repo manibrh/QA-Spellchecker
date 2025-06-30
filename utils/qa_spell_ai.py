@@ -8,6 +8,10 @@ def run_spellcheck_ai(segments):
     issues = []
     for segment in segments:
         try:
+            source = segment.get('source', '')
+            target = segment.get('target', '')
+            segment_id = segment.get('id', '')
+
             prompt = f"""
 You are a professional localization QA specialist.
 
@@ -25,22 +29,20 @@ Expected Output:
 - If there is an issue, describe it and suggest a correction.
 - If the target is clean, respond exactly with: `No spelling or grammar issues found in the target.`
 
-Source (for context): {segment['source']}
-Target: {segment['target']}
+Source (context only): {source}
+Target: {target}
 """
 
             response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.1
             )
 
             reply = response.choices[0].message.content.strip()
             if "no spelling or grammar issues" not in reply.lower():
                 issues.append({
-                    "id": segment.get("id", ""),
+                    "id": segment_id,
                     "issue_type": "Spelling/Grammar",
                     "detail": reply
                 })
