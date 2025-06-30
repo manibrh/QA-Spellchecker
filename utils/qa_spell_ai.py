@@ -30,7 +30,7 @@ def run_spellcheck_ai(segments):
             res = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0
+                temperature=0.1
             )
             output = res.choices[0].message.content.strip()
 
