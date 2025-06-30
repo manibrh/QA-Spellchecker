@@ -22,52 +22,53 @@
 
         <form method="POST" enctype="multipart/form-data" id="qaForm">
           <div class="mb-3">
-            <label for="bilingual_file" class="form-label">Bilingual File (XLIFF/XLSX)</label>
+            <label class="form-label">Bilingual File (XLIFF/XLSX)</label>
             <input type="file" class="form-control" name="bilingual_file" required>
           </div>
 
           <div class="mb-3">
-            <label for="dnt_file" class="form-label">DNT List (optional)</label>
+            <label class="form-label">DNT List (optional)</label>
             <input type="file" class="form-control" name="dnt_file">
           </div>
 
           <div class="mb-3">
-            <label for="glossary_file" class="form-label">Glossary File (optional)</label>
+            <label class="form-label">Glossary File (optional)</label>
             <input type="file" class="form-control" name="glossary_file">
           </div>
 
           <div class="mb-3">
-            <label for="style_guide" class="form-label">Style Guide Instructions (optional)</label>
+            <label class="form-label">Style Guide Instructions (optional)</label>
             <textarea class="form-control" name="style_guide" rows="4"></textarea>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Select QA Checks</label><br>
+            <label class="form-label">Select QA Checks to Run</label><br>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="checks" value="dnt" id="checkDNT" checked>
-              <label class="form-check-label" for="checkDNT">DNT Check</label>
+              <input class="form-check-input" type="checkbox" name="check_dnt" id="check_dnt" checked>
+              <label class="form-check-label" for="check_dnt">DNT</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="checks" value="spell" id="checkSpell" checked>
-              <label class="form-check-label" for="checkSpell">Spelling / Grammar (AI)</label>
+              <input class="form-check-input" type="checkbox" name="check_spell" id="check_spell" checked>
+              <label class="form-check-label" for="check_spell">Spelling / Grammar (AI)</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="checks" value="mistranslation" id="checkMist" checked>
-              <label class="form-check-label" for="checkMist">Mistranslation (AI)</label>
+              <input class="form-check-input" type="checkbox" name="check_mistranslation" id="check_mistranslation" checked>
+              <label class="form-check-label" for="check_mistranslation">Mistranslation (AI)</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="checks" value="literal" id="checkLiteral" checked>
-              <label class="form-check-label" for="checkLiteral">Literalness (AI)</label>
+              <input class="form-check-input" type="checkbox" name="check_literalness" id="check_literalness" checked>
+              <label class="form-check-label" for="check_literalness">Literalness (AI)</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="checks" value="glossary" id="checkGlossary" checked>
-              <label class="form-check-label" for="checkGlossary">Glossary / Style (AI)</label>
+              <input class="form-check-input" type="checkbox" name="check_glossary_style" id="check_glossary_style" checked>
+              <label class="form-check-label" for="check_glossary_style">Glossary / Style (AI)</label>
             </div>
+            <div class="form-text text-muted mt-1">Note: Language mismatch will be checked automatically from file.</div>
           </div>
 
           <div class="mb-3">
             <label class="form-label">QA Progress</label>
-            <div class="progress" role="progressbar">
+            <div class="progress">
               <div class="progress-bar progress-bar-striped progress-bar-animated" id="qaProgressBar" style="width: 0%">0%</div>
             </div>
           </div>
@@ -80,12 +81,13 @@
         <div class="mt-4 d-none" id="qaSummary">
           <h5>QA Summary</h5>
           <ul id="qaSummaryList" class="list-group mb-3"></ul>
-          <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#inlinePreview">Toggle Preview</button>
-          <div class="collapse mt-3" id="inlinePreview">
+          <button class="btn btn-outline-secondary mb-3" data-bs-toggle="collapse" data-bs-target="#inlinePreview">Toggle Inline Issue Preview</button>
+          <div class="collapse" id="inlinePreview">
             <pre class="bg-light p-3 border" id="previewContent">Loading preview...</pre>
-            <a id="downloadBtn" class="btn btn-success mt-2 d-none" href="#" download>Download QA Report</a>
           </div>
+          <div id="downloadButtonWrapper" class="mt-3"></div>
         </div>
+
       </div>
     </div>
   </div>
@@ -98,61 +100,63 @@
 
     const form = document.getElementById('qaForm');
     const progressBar = document.getElementById('qaProgressBar');
-    const summaryBlock = document.getElementById('qaSummary');
     const summaryList = document.getElementById('qaSummaryList');
+    const summaryBlock = document.getElementById('qaSummary');
     const errorBox = document.getElementById('errorBox');
     const previewContent = document.getElementById('previewContent');
-    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadWrapper = document.getElementById('downloadButtonWrapper');
 
-    form.addEventListener('submit', async function(e) {
+    form.addEventListener('submit', function(e) {
       e.preventDefault();
       const formData = new FormData(form);
-
       progressBar.style.width = '10%';
       progressBar.innerText = 'Uploading...';
       errorBox.classList.add('d-none');
+      downloadWrapper.innerHTML = '';
       summaryList.innerHTML = '';
-      previewContent.innerText = 'Running QA...';
-      summaryBlock.classList.add('d-none');
+      previewContent.textContent = '';
 
-      try {
-        const res = await fetch('/', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!res.ok) throw new Error('Something went wrong.');
+      fetch('/', {
+        method: 'POST',
+        body: formData
+      }).then(async res => {
+        if (!res.ok) throw new Error('Server error or file issue.');
 
         const data = await res.json();
         progressBar.style.width = '100%';
-        progressBar.innerText = 'Done';
+        progressBar.innerText = 'Complete';
 
         summaryBlock.classList.remove('d-none');
-        const issueTypes = [...new Set(data.issues.map(issue => issue.issue_type))];
 
-        if (issueTypes.length === 0) {
-          summaryList.innerHTML = '<li class="list-group-item text-success">✔ No issues found!</li>';
-        } else {
-          issueTypes.forEach(type => {
-            const li = document.createElement('li');
-            li.className = 'list-group-item';
-            li.innerText = `⚠ ${type} issues found.`;
-            summaryList.appendChild(li);
+        if (data.preview && Array.isArray(data.preview)) {
+          data.preview.forEach((item, idx) => {
+            const line = `${idx + 1}. ID: ${item.id}, Type: ${item.issue_type}, Detail: ${item.detail}`;
+            previewContent.textContent += line + '\n';
           });
+        } else {
+          previewContent.textContent = 'No preview data available.';
         }
 
-        const preview = data.issues.map(issue => `• [${issue.issue_type}] ${issue.detail}`).join('\n\n');
-        previewContent.innerText = preview || 'No issues detected.';
-
+        const downloadBtn = document.createElement('a');
         downloadBtn.href = data.report_url;
-        downloadBtn.classList.remove('d-none');
+        downloadBtn.className = 'btn btn-success';
+        downloadBtn.innerText = 'Download QA Report';
+        downloadBtn.setAttribute('download', '');
+        downloadWrapper.appendChild(downloadBtn);
 
-      } catch (err) {
+        (data.checks || []).forEach(issue => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.innerText = `✓ ${issue} check completed.`;
+          summaryList.appendChild(li);
+        });
+
+      }).catch(err => {
         progressBar.style.width = '0%';
-        progressBar.innerText = 'Error';
+        progressBar.innerText = 'Failed';
         errorBox.textContent = err.message;
         errorBox.classList.remove('d-none');
-      }
+      });
     });
   </script>
 
