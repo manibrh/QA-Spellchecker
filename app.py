@@ -75,7 +75,7 @@ def index():
 @app.route('/download')
 def download():
     path = request.args.get('path')
-    return send_file(path, as_attachment=True)
+return send_file(report_path, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
