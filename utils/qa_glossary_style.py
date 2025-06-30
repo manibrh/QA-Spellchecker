@@ -1,9 +1,10 @@
-# utils/qa_glossary_style.py
 import os
+import openai
 import pandas as pd
-from openai import OpenAI
+from dotenv import load_dotenv
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def load_glossary(filepath):
     if not filepath:
@@ -13,19 +14,26 @@ def load_glossary(filepath):
 
 def run_glossary_style_check(segments, glossary_path=None, style_guide=None):
     glossary = load_glossary(glossary_path)
-    issues = []
     glossary_text = "\n".join([f"{src} -> {tgt}" for src, tgt in glossary])
+    issues = []
+
     for seg in segments:
-        prompt = f"""You are a QA checker. Evaluate the target for glossary and style guide compliance.\nGlossary:\n{glossary_text if glossary_text else 'None'}\nStyle Guide:\n{style_guide if style_guide else 'None'}\n\nSource: {seg['source']}\nTarget: {seg['target']}"""
+        prompt = f"""Check if the target text complies with the glossary and style guide.
+Glossary:
+{glossary_text if glossary_text else 'None'}
+Style Guide:
+{style_guide if style_guide else 'None'}
+
+Target: {seg['target']}"""
         try:
-            res = client.chat.completions.create(
+            response = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
-            result = res.choices[0].message.content.strip()
-            if "no issues" not in result.lower():
-                issues.append({"id": seg['id'], "issue_type": "Glossary/Style", "detail": result})
+            reply = response.choices[0].message["content"].strip()
+            if "no issues" not in reply.lower():
+                issues.append({"id": seg['id'], "issue_type": "Glossary/Style", "detail": reply})
         except Exception as e:
             issues.append({"id": seg['id'], "issue_type": "Glossary/Style", "detail": str(e)})
     return issues
