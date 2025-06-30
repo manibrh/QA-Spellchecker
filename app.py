@@ -74,9 +74,10 @@ def index():
         preview_data = all_issues[:10]
 
         return jsonify({
-            "report_url": f"/download/{os.path.basename(report_path)}",
-            "preview": preview_data
-        })
+    "report_url": f"/download/{os.path.basename(report_path)}",
+    "preview": all_issues[:50],  # or more
+    "checks": selected_check_names  # list of enabled checks
+})
 
     return render_template("index.html")
 
