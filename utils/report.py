@@ -6,24 +6,17 @@ def generate_report(segments, issues, return_preview=False):
     df_segments = pd.DataFrame(segments)
     df_issues = pd.DataFrame(issues)
 
-    # Merge on segment ID if possible
     if not df_issues.empty and 'id' in df_issues.columns and 'id' in df_segments.columns:
         merged = pd.merge(df_segments, df_issues, on='id', how='left')
     else:
         merged = df_segments.copy()
 
-    # Fill NaNs for better formatting
     merged.fillna('', inplace=True)
-
-    # Create filename with timestamp
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"QA_Report_{timestamp}.xlsx"
     path = os.path.join("uploads", filename)
-
-    # Save to Excel
     merged.to_excel(path, index=False, engine="openpyxl")
 
-    # Preview string
     preview = ""
     if return_preview:
         if df_issues.empty:
