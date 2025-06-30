@@ -17,7 +17,7 @@ def generate_report(segments, issues, return_preview=False):
     filename = f"QA_Report_{timestamp}.xlsx"
     path = os.path.join("static", filename)
     os.makedirs("static", exist_ok=True)
-    merged.to_excel(path, index=False)
+   merged.to_excel(path, index=False, engine="openpyxl")
 
     if return_preview:
         # Create preview (first 20 rows only)
