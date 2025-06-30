@@ -31,27 +31,20 @@ def index():
         bilingual_path = os.path.join(UPLOAD_FOLDER, bilingual_file.filename)
         bilingual_file.save(bilingual_path)
 
-        dnt_path = None
-        glossary_path = None
-
+        dnt_path = glossary_path = None
         if dnt_file and dnt_file.filename:
             dnt_path = os.path.join(UPLOAD_FOLDER, dnt_file.filename)
             dnt_file.save(dnt_path)
-
         if glossary_file and glossary_file.filename:
             glossary_path = os.path.join(UPLOAD_FOLDER, glossary_file.filename)
             glossary_file.save(glossary_path)
 
-        # Parse segments and get declared target language
         segments, declared_target_lang = parse_bilingual_file(bilingual_path)
-
-        # Initialize all issues list
         all_issues = []
 
-        # Always run language mismatch check
+        # Auto run language mismatch
         all_issues.extend(run_language_mismatch_check(segments, declared_target_lang))
 
-        # Dynamically run selected checks
         if 'dnt' in selected_checks:
             all_issues.extend(run_dnt_check(segments, dnt_path))
 
@@ -67,13 +60,7 @@ def index():
         if 'glossary' in selected_checks or 'style' in selected_checks:
             all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
 
-        # Generate report with preview
         report_path, preview_data = generate_report(segments, all_issues, return_preview=True)
-
-        # Save preview content in a temporary file
-        preview_txt_path = report_path.replace('.xlsx', '_preview.txt')
-        with open(preview_txt_path, 'w', encoding='utf-8') as f:
-            f.write(preview_data)
 
         return jsonify({
             'preview': preview_data,
@@ -89,8 +76,7 @@ def download():
         return "File not found", 404
 
     return send_file(report_path, as_attachment=True,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
