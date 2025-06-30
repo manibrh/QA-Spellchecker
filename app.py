@@ -76,7 +76,7 @@ def download():
         return "File not found", 404
 
     return send_file(report_path, as_attachment=True,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
