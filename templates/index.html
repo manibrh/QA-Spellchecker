@@ -38,36 +38,31 @@
 
           <div class="mb-3">
             <label for="style_guide" class="form-label">Style Guide Instructions (optional)</label>
-            <textarea class="form-control" name="style_guide" rows="3"></textarea>
+            <textarea class="form-control" name="style_guide" rows="4"></textarea>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Select QA Checks</label>
+            <label class="form-label">Select QA Checks</label><br>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="issue_types" value="dnt" checked>
-              <label class="form-check-label">DNT Check</label>
+              <input class="form-check-input" type="checkbox" name="checks" value="dnt" id="checkDNT" checked>
+              <label class="form-check-label" for="checkDNT">DNT Check</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="issue_types" value="spell" checked>
-              <label class="form-check-label">Spelling/Grammar Check (AI)</label>
+              <input class="form-check-input" type="checkbox" name="checks" value="spell" id="checkSpell" checked>
+              <label class="form-check-label" for="checkSpell">Spelling / Grammar (AI)</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="issue_types" value="mistranslation" checked>
-              <label class="form-check-label">Mistranslation Check (AI)</label>
+              <input class="form-check-input" type="checkbox" name="checks" value="mistranslation" id="checkMist" checked>
+              <label class="form-check-label" for="checkMist">Mistranslation (AI)</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="issue_types" value="literal" checked>
-              <label class="form-check-label">Literal Translation Check (AI)</label>
+              <input class="form-check-input" type="checkbox" name="checks" value="literal" id="checkLiteral" checked>
+              <label class="form-check-label" for="checkLiteral">Literalness (AI)</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="issue_types" value="glossary_style" checked>
-              <label class="form-check-label">Glossary/Style Check (AI)</label>
+              <input class="form-check-input" type="checkbox" name="checks" value="glossary" id="checkGlossary" checked>
+              <label class="form-check-label" for="checkGlossary">Glossary / Style (AI)</label>
             </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="issue_types" value="lang_mismatch">
-              <label class="form-check-label">Language Mismatch Check (AI)</label>
-            </div>
-            <input type="text" class="form-control mt-2" name="expected_lang" placeholder="Expected Language Code (e.g., fr, hi)">
           </div>
 
           <div class="mb-3">
@@ -85,10 +80,10 @@
         <div class="mt-4 d-none" id="qaSummary">
           <h5>QA Summary</h5>
           <ul id="qaSummaryList" class="list-group mb-3"></ul>
-          <button class="btn btn-success" id="downloadBtn" style="display: none;">Download QA Report</button>
-          <button class="btn btn-outline-secondary mt-2" data-bs-toggle="collapse" data-bs-target="#inlinePreview">Toggle Inline Issue Preview</button>
+          <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#inlinePreview">Toggle Preview</button>
           <div class="collapse mt-3" id="inlinePreview">
             <pre class="bg-light p-3 border" id="previewContent">Loading preview...</pre>
+            <a id="downloadBtn" class="btn btn-success mt-2 d-none" href="#" download>Download QA Report</a>
           </div>
         </div>
       </div>
@@ -103,63 +98,60 @@
 
     const form = document.getElementById('qaForm');
     const progressBar = document.getElementById('qaProgressBar');
-    const summaryList = document.getElementById('qaSummaryList');
     const summaryBlock = document.getElementById('qaSummary');
+    const summaryList = document.getElementById('qaSummaryList');
     const errorBox = document.getElementById('errorBox');
     const previewContent = document.getElementById('previewContent');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    let blobUrl = null;
-
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
       e.preventDefault();
       const formData = new FormData(form);
+
       progressBar.style.width = '10%';
       progressBar.innerText = 'Uploading...';
       errorBox.classList.add('d-none');
       summaryList.innerHTML = '';
-      summaryBlock.classList.remove('d-none');
-      previewContent.textContent = 'Processing...';
-      downloadBtn.style.display = 'none';
+      previewContent.innerText = 'Running QA...';
+      summaryBlock.classList.add('d-none');
 
-      fetch('/', {
-        method: 'POST',
-        body: formData
-      }).then(async res => {
-        if (!res.ok) throw new Error('Server error or file issue.');
-        progressBar.style.width = '90%';
-        progressBar.innerText = 'Generating Report...';
-
-        const blob = await res.blob();
-        blobUrl = URL.createObjectURL(blob);
-        downloadBtn.style.display = 'inline-block';
-
-        progressBar.style.width = '100%';
-        progressBar.innerText = 'Complete';
-
-        const checks = Array.from(document.querySelectorAll("input[name='issue_types']:checked")).map(i => i.value);
-        checks.forEach(issue => {
-          const li = document.createElement('li');
-          li.className = 'list-group-item';
-          li.innerText = `✓ ${issue.toUpperCase()} check completed.`;
-          summaryList.appendChild(li);
+      try {
+        const res = await fetch('/', {
+          method: 'POST',
+          body: formData
         });
-        previewContent.textContent = '✔ QA complete. You can now download the report.';
-      }).catch(err => {
+
+        if (!res.ok) throw new Error('Something went wrong.');
+
+        const data = await res.json();
+        progressBar.style.width = '100%';
+        progressBar.innerText = 'Done';
+
+        summaryBlock.classList.remove('d-none');
+        const issueTypes = [...new Set(data.issues.map(issue => issue.issue_type))];
+
+        if (issueTypes.length === 0) {
+          summaryList.innerHTML = '<li class="list-group-item text-success">✔ No issues found!</li>';
+        } else {
+          issueTypes.forEach(type => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.innerText = `⚠ ${type} issues found.`;
+            summaryList.appendChild(li);
+          });
+        }
+
+        const preview = data.issues.map(issue => `• [${issue.issue_type}] ${issue.detail}`).join('\n\n');
+        previewContent.innerText = preview || 'No issues detected.';
+
+        downloadBtn.href = data.report_url;
+        downloadBtn.classList.remove('d-none');
+
+      } catch (err) {
         progressBar.style.width = '0%';
-        progressBar.innerText = 'Failed';
+        progressBar.innerText = 'Error';
         errorBox.textContent = err.message;
         errorBox.classList.remove('d-none');
-      });
-    });
-
-    downloadBtn.addEventListener('click', function () {
-      if (blobUrl) {
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = "QA_Report.xlsx";
-        a.click();
-        URL.revokeObjectURL(blobUrl);
       }
     });
   </script>
