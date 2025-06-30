@@ -15,23 +15,24 @@ def generate_report(segments, issues, return_preview=False):
     # Fill NaNs
     merged.fillna('', inplace=True)
 
-    # Ensure uploads folder exists
-    if not os.path.exists("uploads"):
-        os.makedirs("uploads")
+    # Create uploads folder if missing
+    output_dir = os.path.join(os.getcwd(), "uploads")
+    os.makedirs(output_dir, exist_ok=True)
 
-    # Filename and save
+    # Timestamped report filename
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"QA_Report_{timestamp}.xlsx"
-    path = os.path.join("uploads", filename)
+    path = os.path.join(output_dir, filename)
 
     try:
+        # Use openpyxl explicitly
         with pd.ExcelWriter(path, engine='openpyxl') as writer:
             merged.to_excel(writer, index=False)
     except Exception as e:
-        print(f"❌ Error writing Excel: {e}")
+        print("⚠️ Excel writing error:", e)
         raise
 
-    # Preview
+    # Preview (for web UI)
     preview = ""
     if return_preview:
         if df_issues.empty:
