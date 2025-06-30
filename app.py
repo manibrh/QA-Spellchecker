@@ -1,6 +1,6 @@
 # app.py
 import os
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, send_file
 from dotenv import load_dotenv
 from utils.parser import parse_bilingual_file
 from utils.qa_dnt import run_dnt_check
@@ -8,7 +8,6 @@ from utils.qa_spell_ai import run_spellcheck_ai
 from utils.qa_mistranslation import run_mistranslation_check
 from utils.qa_literalness import run_literalness_check
 from utils.qa_glossary_style import run_glossary_style_check
-from utils.qa_lang_mismatch import run_language_mismatch_check
 from utils.report import generate_report
 
 load_dotenv()
@@ -25,26 +24,22 @@ def index():
         glossary_file = request.files.get('glossary_file')
         style_guide = request.form.get('style_guide')
 
-        check_dnt = 'check_dnt' in request.form
-        check_spell = 'check_spell' in request.form
-        check_mistranslation = 'check_mistranslation' in request.form
-        check_literalness = 'check_literalness' in request.form
-        check_glossary_style = 'check_glossary_style' in request.form
-
-        selected_check_names = []
-        if check_dnt: selected_check_names.append("DNT")
-        if check_spell: selected_check_names.append("Spelling / Grammar")
-        if check_mistranslation: selected_check_names.append("Mistranslation")
-        if check_literalness: selected_check_names.append("Literalness")
-        if check_glossary_style: selected_check_names.append("Glossary / Style")
+        selected_checks = {
+            'check_dnt': request.form.get('check_dnt'),
+            'check_spell': request.form.get('check_spell'),
+            'check_mistranslation': request.form.get('check_mistranslation'),
+            'check_literalness': request.form.get('check_literalness'),
+            'check_glossary': request.form.get('check_glossary')
+        }
 
         if not bilingual_file:
-            return jsonify({"error": "No bilingual file uploaded"}), 400
+            return "No bilingual file uploaded", 400
 
         bilingual_path = os.path.join(UPLOAD_FOLDER, bilingual_file.filename)
         bilingual_file.save(bilingual_path)
 
-        dnt_path = glossary_path = None
+        dnt_path = None
+        glossary_path = None
 
         if dnt_file and dnt_file.filename:
             dnt_path = os.path.join(UPLOAD_FOLDER, dnt_file.filename)
@@ -54,45 +49,25 @@ def index():
             glossary_path = os.path.join(UPLOAD_FOLDER, glossary_file.filename)
             glossary_file.save(glossary_path)
 
-        # Parse segments + get declared target language from XLIFF
-        segments, declared_target_lang = parse_bilingual_file(bilingual_path)
-
+        segments = parse_bilingual_file(bilingual_path)
         all_issues = []
 
-        # Run checks conditionally
-        if check_dnt:
+        if selected_checks['check_dnt']:
             all_issues.extend(run_dnt_check(segments, dnt_path))
-
-        if check_spell:
-            all_issues.extend(run_spellcheck_ai([s['target'] for s in segments], segments))
-
-        if check_mistranslation:
+        if selected_checks['check_spell']:
+            all_issues.extend(run_spellcheck_ai(segments))
+        if selected_checks['check_mistranslation']:
             all_issues.extend(run_mistranslation_check(segments))
-
-        if check_literalness:
+        if selected_checks['check_literalness']:
             all_issues.extend(run_literalness_check(segments))
-
-        if check_glossary_style:
+        if selected_checks['check_glossary']:
             all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
-
-        # Language mismatch check (always run)
-        all_issues.extend(run_language_mismatch_check(segments, declared_target_lang))
 
         report_path = generate_report(segments, all_issues)
 
-        return jsonify({
-            "report_url": f"/download/{os.path.basename(report_path)}",
-            "preview": all_issues[:50],
-            "checks": selected_check_names
-        })
+        return send_file(report_path, as_attachment=True)
 
     return render_template('index.html')
-
-
-@app.route('/download/<path:filename>')
-def download_report(filename):
-    return send_from_directory(os.path.join('static', 'qa_reports'), filename, as_attachment=True)
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
