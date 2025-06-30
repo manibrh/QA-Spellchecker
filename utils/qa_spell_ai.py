@@ -27,7 +27,7 @@ def run_spellcheck_ai(target_texts, segments):
                         "content": f"Target text:\n{text}"
                     }
                 ],
-                temperature=0.2
+                temperature=0.1
             )
 
             reply = response.choices[0].message.content.strip()
