@@ -1,13 +1,13 @@
-# utils/qa_mistranslation.py
+# utils/qa_literalness.py
 import os
 from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def run_mistranslation_check(segments):
+def run_literalness_check(segments):
     issues = []
     for seg in segments:
-        prompt = f"""Check this translation for mistranslation:\nSource: {seg['source']}\nTarget: {seg['target']}"""
+        prompt = f"""Check if the translation is too literal:\nSource: {seg['source']}\nTarget: {seg['target']}"""
         try:
             res = client.chat.completions.create(
                 model="gpt-4o",
@@ -16,7 +16,7 @@ def run_mistranslation_check(segments):
             )
             output = res.choices[0].message.content.strip()
             if "no issues" not in output.lower():
-                issues.append({"id": seg['id'], "issue_type": "Mistranslation", "detail": output})
+                issues.append({"id": seg['id'], "issue_type": "Literalness", "detail": output})
         except Exception as e:
-            issues.append({"id": seg['id'], "issue_type": "Mistranslation", "detail": str(e)})
+            issues.append({"id": seg['id'], "issue_type": "Literalness", "detail": str(e)})
     return issues
