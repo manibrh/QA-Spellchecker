@@ -1,5 +1,3 @@
-# utils/qa_spell_ai.py
-
 import os
 from openai import OpenAI
 
@@ -7,53 +5,65 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def run_spellcheck_ai(segments):
     issues = []
-    
-    for segment in segments:
-        seg_id = segment.get("id", "")
-        source = segment.get("source", "").strip()
-        target = segment.get("target", "").strip()
 
-        if not target:
-            continue  # skip empty targets
+    for seg in segments:
+        seg_id = seg.get('id', '')
+        source = seg.get('source', '')
+        target = seg.get('target', '')
+
+        if not target.strip():
+            continue  # Skip empty targets
 
         prompt = (
-            f"You are a professional Tamil language proofreader.\n"
-            f"Your job is to check the **target text only** for spelling or grammar issues.\n"
-            f"Use the source text for context, but do NOT assume it is a correct translation.\n\n"
-            f"Source (for context): {source}\n"
-            f"Target (to be reviewed): {target}\n\n"
-            f"If you find any spelling or grammar errors in the target, reply in the following format:\n"
-            f"Issue: <explanation of the problem>\n"
-            f"Suggestion: <corrected version>\n\n"
-            f"Reply only with 'No issues' if the target is perfectly correct."
+            f"You are a professional linguist reviewing translations in multiple languages.\n"
+            f"Your task is to check the following TARGET text for spelling and grammar mistakes ONLY.\n"
+            f"Use the SOURCE as context, but do not translate or compare meaning.\n\n"
+            f"Instructions:\n"
+            f"- Only comment on spelling and grammar issues in the TARGET.\n"
+            f"- If there are errors, explain the issue and suggest a corrected version.\n"
+            f"- If there are no issues, respond with exactly: No issues.\n\n"
+            f"SOURCE (context only): {source}\n"
+            f"TARGET (to review): {target}"
         )
 
         try:
-            response = client.chat.completions.create(
+            res = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0
             )
-            output = response.choices[0].message.content.strip()
+            output = res.choices[0].message.content.strip()
 
-            if "no issues" not in output.lower():
-                issue_data = {"id": seg_id, "issue_type": "Spelling/Grammar", "issue": "", "suggestion": ""}
-                
-                if "Issue:" in output and "Suggestion:" in output:
-                    # Split using keywords
+            if output.lower().strip() != "no issues":
+                # Attempt to extract issue and suggestion
+                if "Suggestion:" in output:
                     parts = output.split("Suggestion:")
-                    issue_data["issue"] = parts[0].replace("Issue:", "").strip()
-                    issue_data["suggestion"] = parts[1].strip()
+                    issue = parts[0].strip()
+                    suggestion = parts[1].strip()
+                elif "→" in output:
+                    parts = output.split("→")
+                    issue = parts[0].strip()
+                    suggestion = parts[1].strip()
                 else:
-                    issue_data["issue"] = output
+                    issue = output
+                    suggestion = ""
 
-                issues.append(issue_data)
+                issues.append({
+                    "id": seg_id,
+                    "source": source,
+                    "target": target,
+                    "issue_type": "Spelling/Grammar",
+                    "issue": issue,
+                    "suggestion": suggestion
+                })
 
         except Exception as e:
             issues.append({
                 "id": seg_id,
+                "source": source,
+                "target": target,
                 "issue_type": "Spelling/Grammar",
-                "issue": f"Error from AI: {str(e)}",
+                "issue": f"AI Error: {str(e)}",
                 "suggestion": ""
             })
 
