@@ -1,48 +1,28 @@
 import os
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
-load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def run_spellcheck_ai(segments):
     issues = []
     for seg in segments:
-        target = seg.get("target", "")
+        target = seg['target']
         if not target.strip():
             continue
-
+        prompt = f"""You are a language QA checker. Review the following text for spelling and grammar issues. 
+Only list real mistakes in the 'target'. Do NOT reference the source or suggest rephrasing unless it’s a clear grammatical/spelling error.
+Target: {target}"""
         try:
-            response = client.chat.completions.create(
+            response = openai.ChatCompletion.create(
                 model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a localization QA bot. Analyze the following target text "
-                            "only for spelling or grammar mistakes. Only report actual issues "
-                            "if they exist. Reply with 'No issues' if it's clean."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Target: {target}"
-                    }
-                ],
-                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
             )
-            reply = response.choices[0].message.content.strip()
-            if "no issue" not in reply.lower():
-                issues.append({
-                    "id": seg['id'],
-                    "issue_type": "Spelling/Grammar",
-                    "detail": reply
-                })
-
+            reply = response.choices[0].message["content"].strip()
+            if "no issues" not in reply.lower():
+                issues.append({"id": seg['id'], "issue_type": "Spelling/Grammar", "detail": reply})
         except Exception as e:
-            issues.append({
-                "id": seg['id'],
-                "issue_type": "Spelling/Grammar",
-                "detail": f"Error: {str(e)}"
-            })
+            issues.append({"id": seg['id'], "issue_type": "Spelling/Grammar", "detail": str(e)})
     return issues
