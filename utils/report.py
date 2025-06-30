@@ -1,44 +1,46 @@
 import pandas as pd
 import os
-import datetime
+import re
+from datetime import datetime
+import logging
 
-def generate_report(segments, issues, return_preview=False):
-    df_segments = pd.DataFrame(segments)
-    df_issues = pd.DataFrame(issues)
+logger = logging.getLogger(__name__)
 
-    # Merge segments with issues if possible
-    if not df_issues.empty and 'id' in df_issues.columns and 'id' in df_segments.columns:
-        merged = pd.merge(df_segments, df_issues, on='id', how='left')
-    else:
-        merged = df_segments.copy()
+def sanitize_sheet_name(name):
+    name = re.sub(r'[\\/*?:\[\]]', '', name)
+    return name[:31]
 
-    merged.fillna('', inplace=True)
-
-    # Ensure uploads/ directory exists
-    os.makedirs("uploads", exist_ok=True)
-
-    # Filename
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+def generate_report(segments, all_issues):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"QA_Report_{timestamp}.xlsx"
-    path = os.path.join("uploads", filename)
+    output_path = os.path.join("static", "qa_reports")
+    os.makedirs(output_path, exist_ok=True)
+    report_path = os.path.join(output_path, filename)
 
-    # Save Excel using context manager (ensures closing file)
-    with pd.ExcelWriter(path, engine="openpyxl", mode="w") as writer:
-        merged.to_excel(writer, index=False)
+    logger.info(f"Generating report at: {report_path}")
 
-    # Build preview
-    preview = "✅ No issues found."
-    if return_preview and not df_issues.empty:
-        grouped = df_issues.groupby('id')
-        lines = []
-        for seg_id, items in grouped:
-            for _, row in items.iterrows():
-                issue = row.get('issue', 'Unknown issue')
-                suggestion = row.get('suggestion', '')
-                line = f"Segment {seg_id}: {issue}"
-                if suggestion:
-                    line += f" → {suggestion}"
-                lines.append(line)
-        preview = "\n".join(lines)
+    with pd.ExcelWriter(report_path, engine='openpyxl') as writer:
+        sheets_written = 0
 
-    return path, preview
+        if isinstance(all_issues, dict):
+            for issue_type, issues in all_issues.items():
+                df = pd.DataFrame(issues)
+                if not df.empty:
+                    sheet_name = sanitize_sheet_name(issue_type)
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+                    sheets_written += 1
+
+        elif isinstance(all_issues, list):
+            df = pd.DataFrame(all_issues)
+            if not df.empty:
+                df.to_excel(writer, sheet_name="Issues", index=False)
+                sheets_written += 1
+
+        else:
+            logger.error("Unsupported format for all_issues. Must be dict or list.")
+
+        if sheets_written == 0:
+            # Write at least one sheet to avoid Excel error
+            pd.DataFrame([{"Info": "No issues found"}]).to_excel(writer, sheet_name="Summary", index=False)
+
+    return report_path
