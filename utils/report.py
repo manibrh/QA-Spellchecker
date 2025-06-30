@@ -1,27 +1,41 @@
 import pandas as pd
 import os
-from datetime import datetime
+import datetime
 
 def generate_report(segments, issues, return_preview=False):
     df_segments = pd.DataFrame(segments)
     df_issues = pd.DataFrame(issues)
 
-    if not df_issues.empty:
-        merged = pd.merge(df_segments, df_issues, on="id", how="left")
+    # Merge on segment ID if possible
+    if not df_issues.empty and 'id' in df_issues.columns and 'id' in df_segments.columns:
+        merged = pd.merge(df_segments, df_issues, on='id', how='left')
     else:
         merged = df_segments.copy()
-        merged["issue_type"] = ""
-        merged["comment"] = ""
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Fill NaNs for better formatting
+    merged.fillna('', inplace=True)
+
+    # Create filename with timestamp
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"QA_Report_{timestamp}.xlsx"
-    path = os.path.join("static", filename)
-    os.makedirs("static", exist_ok=True)
-   merged.to_excel(path, index=False, engine="openpyxl")
+    path = os.path.join("uploads", filename)
 
+    # Save to Excel
+    merged.to_excel(path, index=False, engine="openpyxl")
+
+    # Preview string
+    preview = ""
     if return_preview:
-        # Create preview (first 20 rows only)
-        preview_data = merged.head(20).to_dict(orient="records")
-        return path, preview_data
+        if df_issues.empty:
+            preview = "✅ No issues found."
+        else:
+            grouped = df_issues.groupby('id')
+            lines = []
+            for seg_id, items in grouped:
+                for _, row in items.iterrows():
+                    issue = row.get('issue', 'Unknown issue')
+                    suggestion = row.get('suggestion', '')
+                    lines.append(f"Segment {seg_id}: {issue}" + (f" → {suggestion}" if suggestion else ""))
+            preview = "\n".join(lines)
 
-    return path
+    return path, preview
