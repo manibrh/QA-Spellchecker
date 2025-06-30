@@ -1,28 +1,49 @@
 import os
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
-
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def run_spellcheck_ai(segments):
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def run_spellcheck_ai(target_texts, segments):
     issues = []
-    for seg in segments:
-        target = seg['target']
-        if not target.strip():
-            continue
-        prompt = f"""You are a language QA checker. Review the following text for spelling and grammar issues. 
-Only list real mistakes in the 'target'. Do NOT reference the source or suggest rephrasing unless it’s a clear grammatical/spelling error.
-Target: {target}"""
+
+    for i, text in enumerate(target_texts):
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a localization QA specialist. "
+                            "Identify spelling and grammar mistakes in the **target** text only. "
+                            "Only list clear issues (like typos, grammar errors, or punctuation problems). "
+                            "If no issues found, say 'No issues'."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Target text:\n{text}"
+                    }
+                ],
                 temperature=0.2
             )
-            reply = response.choices[0].message["content"].strip()
-            if "no issues" not in reply.lower():
-                issues.append({"id": seg['id'], "issue_type": "Spelling/Grammar", "detail": reply})
+
+            reply = response.choices[0].message.content.strip()
+
+            if "no issue" not in reply.lower():
+                issues.append({
+                    "id": segments[i].get("id", str(i)),
+                    "issue_type": "Spelling/Grammar",
+                    "detail": reply
+                })
+
         except Exception as e:
-            issues.append({"id": seg['id'], "issue_type": "Spelling/Grammar", "detail": str(e)})
+            issues.append({
+                "id": segments[i].get("id", str(i)),
+                "issue_type": "Spelling/Grammar",
+                "detail": f"API Error: {str(e)}"
+            })
+
     return issues
