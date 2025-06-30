@@ -1,24 +1,48 @@
-# utils/qa_spell_ai.py
 import os
 from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def run_spellcheck_ai(segments):
     issues = []
-    for segment in segments:
+    for seg in segments:
+        target = seg.get("target", "")
+        if not target.strip():
+            continue
+
         try:
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a localization QA specialist. Identify spelling or grammar issues in the provided text. Only report real issues, and skip segments that are fine."},
-                    {"role": "user", "content": f"Check this text: {segment}"}
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a localization QA bot. Analyze the following target text "
+                            "only for spelling or grammar mistakes. Only report actual issues "
+                            "if they exist. Reply with 'No issues' if it's clean."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Target: {target}"
+                    }
                 ],
-                temperature=0.2
+                temperature=0.2,
             )
             reply = response.choices[0].message.content.strip()
             if "no issue" not in reply.lower():
-                issues.append({"Segment": segment, "Issue Type": "Spelling/Grammar", "Details": reply})
+                issues.append({
+                    "id": seg['id'],
+                    "issue_type": "Spelling/Grammar",
+                    "detail": reply
+                })
+
         except Exception as e:
-            issues.append({"Segment": segment, "Issue Type": "API Error", "Details": str(e)})
+            issues.append({
+                "id": seg['id'],
+                "issue_type": "Spelling/Grammar",
+                "detail": f"Error: {str(e)}"
+            })
     return issues
