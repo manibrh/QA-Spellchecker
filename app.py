@@ -11,19 +11,21 @@ from utils.qa_lang_mismatch import run_language_mismatch_check
 from utils.report import generate_report
 
 load_dotenv()
+
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        bilingual_file = request.files.get('bilingual_file')
-        dnt_file = request.files.get('dnt_file')
-        glossary_file = request.files.get('glossary_file')
-        style_guide = request.form.get('style_guide', '')
 
-        selected_checks = request.form.getlist('checks')
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        bilingual_file = request.files.get("bilingual_file")
+        dnt_file = request.files.get("dnt_file")
+        glossary_file = request.files.get("glossary_file")
+        style_guide = request.form.get("style_guide")
+
+        checks_selected = request.form.getlist("checks")
 
         if not bilingual_file:
             return "No bilingual file uploaded", 400
@@ -42,37 +44,47 @@ def index():
             glossary_path = os.path.join(UPLOAD_FOLDER, glossary_file.filename)
             glossary_file.save(glossary_path)
 
+        # Parse segments + declared target language
         segments, declared_target_lang = parse_bilingual_file(bilingual_path)
 
         all_issues = []
 
-        if 'dnt' in selected_checks:
-            all_issues.extend(run_dnt_check(segments, dnt_path))
-        if 'spell' in selected_checks:
-            all_issues.extend(run_spellcheck_ai([seg['target'] for seg in segments], segments))
-        if 'mistranslation' in selected_checks:
-            all_issues.extend(run_mistranslation_check(segments))
-        if 'literal' in selected_checks:
-            all_issues.extend(run_literalness_check(segments))
-        if 'glossary' in selected_checks:
-            all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
-
-        # Always check language mismatch
+        # Always run language mismatch
         all_issues.extend(run_language_mismatch_check(segments, declared_target_lang))
 
+        if "dnt" in checks_selected:
+            all_issues.extend(run_dnt_check(segments, dnt_path))
+
+        if "spell" in checks_selected:
+            all_issues.extend(run_spellcheck_ai([seg["target"] for seg in segments], segments))
+
+        if "mistranslation" in checks_selected:
+            all_issues.extend(run_mistranslation_check(segments))
+
+        if "literalness" in checks_selected:
+            all_issues.extend(run_literalness_check(segments))
+
+        if "glossary" in checks_selected:
+            all_issues.extend(run_glossary_style_check(segments, glossary_path, style_guide))
+
+        # Generate report
         report_path = generate_report(segments, all_issues)
 
-        # Return preview data and download path
+        # Preview 10 rows only
+        preview_data = all_issues[:10]
+
         return jsonify({
-            "report_url": f"/{report_path}",
-            "issues": all_issues
+            "report_url": f"/download/{os.path.basename(report_path)}",
+            "preview": preview_data
         })
 
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/<path:filename>')
-def download_file(filename):
-    return send_file(filename, as_attachment=True)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000, debug=True)
+@app.route("/download/<filename>")
+def download(filename):
+    return send_file(os.path.join("static", "qa_reports", filename), as_attachment=True)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000, debug=True)
