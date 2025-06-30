@@ -8,17 +8,48 @@ def run_spellcheck_ai(segments):
     issues = []
     for segment in segments:
         try:
+            prompt = f"""
+You are a professional localization QA specialist.
+
+Your job is to evaluate **only the target text** for:
+- Spelling or typographic mistakes
+- Grammar issues
+- Incorrect suffixes, word endings, or particle usage (especially in languages like Tamil, Hindi, etc.)
+
+Instructions:
+- Do not comment on translation quality or style unless it affects spelling/grammar.
+- Use the source only for light context — focus on spelling and grammar in the target.
+- Be strict: catch even minor typos or letter swaps (e.g., 'பினர்' instead of 'பின்னர்').
+
+Expected Output:
+- If there is an issue, describe it and suggest a correction.
+- If the target is clean, respond exactly with: `No spelling or grammar issues found in the target.`
+
+Source (for context): {segment['source']}
+Target: {segment['target']}
+"""
+
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a localization QA specialist. Identify spelling and grammar issues in the provided text. Only report real issues, and skip segments that are fine. Also in the target text typo or spelling in the target languages to be strictly checked."},
-                    {"role": "user", "content": f"Check this text: {segment}"}
+                    {"role": "user", "content": prompt}
                 ],
                 temperature=0.1
             )
+
             reply = response.choices[0].message.content.strip()
-            if "no issue" not in reply.lower():
-                issues.append({"Segment": segment, "Issue Type": "Spelling/Grammar", "Details": reply})
+            if "no spelling or grammar issues" not in reply.lower():
+                issues.append({
+                    "id": segment.get("id", ""),
+                    "issue_type": "Spelling/Grammar",
+                    "detail": reply
+                })
+
         except Exception as e:
-            issues.append({"Segment": segment, "Issue Type": "API Error", "Details": str(e)})
+            issues.append({
+                "id": segment.get("id", ""),
+                "issue_type": "API Error",
+                "detail": str(e)
+            })
+
     return issues
