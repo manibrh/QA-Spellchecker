@@ -26,4 +26,4 @@ RUN pip install --upgrade pip && \
 EXPOSE 10000
 
 # Gunicorn command for Flask (WSGI app)
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:10000", "app:app"]
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:10000", "app:app"]
