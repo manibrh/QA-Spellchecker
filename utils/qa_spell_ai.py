@@ -3,7 +3,7 @@ from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def run_bilingual_spellcheck(segments):
+def run_spellcheck_ai(segments):
     issues = []
 
     for seg in segments:
@@ -32,7 +32,7 @@ def run_bilingual_spellcheck(segments):
             res = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                temperature=0.1
             )
             output = res.choices[0].message.content.strip()
 
