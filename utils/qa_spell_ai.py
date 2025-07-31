@@ -3,7 +3,7 @@ from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def run_spellcheck_ai(segments):
+def run_bilingual_spellcheck(segments):
     issues = []
 
     for seg in segments:
@@ -12,51 +12,46 @@ def run_spellcheck_ai(segments):
         target = seg.get('target', '')
 
         if not target.strip():
-            continue  # Skip empty targets
+            continue
 
         prompt = (
-            "You are a professional translation QA linguist. Your task is to check the TARGET text "
-            "for spelling, grammar, punctuation, and casing issues.\n\n"
-            "Please follow these instructions:\n"
-            "1. Only evaluate the TARGET text, using the SOURCE as optional context.\n"
-            "2. Do not check meaning or translation accuracy — only language mechanics.\n"
-            "3. Return one of the following:\n"
-            "   - If there are no issues: respond with exactly --> No issues\n"
-            "   - If there are issues: respond with this format:\n"
-            "     Issue: <description of the language problem>\n"
-            "     Suggestion: <suggested corrected version of the TARGET>\n\n"
-            f"SOURCE (context only): {source}\n"
-            f"TARGET (to review): {target}"
+            "You are a professional translation QA linguist.\n\n"
+            "Task:\n"
+            "1. Review the TARGET text for spelling, grammar, and punctuation issues.\n"
+            "2. Also compare the SOURCE and TARGET to verify if the translated words reflect the correct meaning.\n"
+            "3. If a word appears to be a mistranslation or an incorrect term (even if it’s not a typo), flag it.\n"
+            "4. Provide your feedback in this format:\n"
+            "   Issue: <Describe the problem>\n"
+            "   Suggestion: <Corrected version of TARGET>\n"
+            "5. If there are no issues, respond with exactly: No issues\n\n"
+            f"SOURCE: {source}\n"
+            f"TARGET: {target}"
         )
 
         try:
             res = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.1
+                temperature=0.2
             )
             output = res.choices[0].message.content.strip()
 
-            if output.lower().strip() != "no issues":
+            if output.lower() != "no issues":
                 issue = ""
                 suggestion = ""
-
-                # Robust parsing
-                lines = output.splitlines()
-                for line in lines:
+                for line in output.splitlines():
                     if line.lower().startswith("issue:"):
                         issue = line.split(":", 1)[1].strip()
                     elif line.lower().startswith("suggestion:"):
                         suggestion = line.split(":", 1)[1].strip()
-
                 if not issue:
-                    issue = output  # fallback
+                    issue = output
 
                 issues.append({
                     "id": seg_id,
                     "source": source,
                     "target": target,
-                    "issue_type": "Spelling/Grammar",
+                    "issue_type": "Spelling/Meaning",
                     "issue": issue,
                     "suggestion": suggestion
                 })
@@ -66,7 +61,7 @@ def run_spellcheck_ai(segments):
                 "id": seg_id,
                 "source": source,
                 "target": target,
-                "issue_type": "Spelling/Grammar",
+                "issue_type": "Spelling/Meaning",
                 "issue": f"AI Error: {str(e)}",
                 "suggestion": ""
             })
